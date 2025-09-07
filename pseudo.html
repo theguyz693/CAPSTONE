@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Navigator - Final Concept</title>
+    <style>
+        :root {
+            --primary-accent: #00e5ff;
+            --secondary-accent: #ff4d89;
+            --success-color: #4dff8a;
+            --glow-color: rgba(0, 229, 255, 0.75);
+            --ui-bg: rgba(20, 22, 35, 0.8);
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: #0a0a10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .phone-container {
+            /* Responsive Scaling */
+            width: 390px;
+            height: auto; /* Height is determined by aspect ratio */
+            aspect-ratio: 390 / 844;
+            max-width: 95vw;
+            max-height: 95vh;
+            
+            background: #111;
+            border-radius: 50px;
+            padding: 12px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        .screen-content {
+            width: 100%;
+            height: 100%;
+            background-image: url('https://images.adsttc.com/media/images/6373/352c/2a3c/d401/678c/4c1b/large_jpg/terminal-2-at-kempegowda-international-airport-bengaluru-som_1.jpg');
+            background-size: cover;
+            background-position: center 30%;
+            border-radius: 42px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .system-bar {
+            position: absolute;
+            top: 15px; left: 30px; right: 30px;
+            height: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+        .system-bar #time { padding-left: 20px;}
+
+        .app-state {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 20, 0.5);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 500;
+            pointer-events: none;
+        }
+        .app-state.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #initializer .scanner {
+            width: 150px; height: 150px;
+            border: 3px solid var(--primary-accent);
+            border-radius: 20px;
+            position: relative;
+            background: linear-gradient(45deg, rgba(0,229,255,0.1), transparent);
+        }
+        #initializer .scanner::after {
+            content: ''; position: absolute; top: -3px; left: 50%;
+            width: 3px; height: 100%; background: #fff;
+            animation: scan 2s infinite cubic-bezier(0.6, 0, 0.4, 1);
+            box-shadow: 0 0 15px #fff;
+        }
+        @keyframes scan {
+            0% { transform: translateX(-50%) scaleY(1); left: 0%;}
+            50% { transform: translateX(-50%) scaleY(0.8); }
+            100% { transform: translateX(-50%) scaleY(1); left: 100%;}
+        }
+        #initializer p { margin-top: 20px; font-size: 16px; font-weight: 500; }
+
+        #search-view { justify-content: flex-start; padding-top: 100px; }
+        .search-container { width: 90%; text-align: center; }
+        #search-input {
+            width: 100%; padding: 18px 25px; font-size: 18px; border: none;
+            border-radius: 30px; background: rgba(255,255,255, 0.9); color: #333;
+            outline: none; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        #search-results {
+            width: 100%; margin-top: 15px; text-align: left;
+            background: var(--ui-bg); border-radius: 20px; padding: 10px;
+        }
+        .result-item { padding: 15px 20px; border-radius: 15px; cursor: pointer; transition: background 0.2s ease; }
+        .result-item:hover { background: rgba(255,255,255,0.1); }
+        .result-item h3 { margin: 0; font-size: 16px; }
+        .result-item p { margin: 2px 0 0; font-size: 13px; color: var(--primary-accent);}
+
+        #navigation-view { display: none; }
+        
+        .ui-element {
+             background: var(--ui-bg); backdrop-filter: blur(20px); border-radius: 20px;
+             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);
+             position: absolute; animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .top-bar { top: 50px; left: 15px; right: 15px; padding: 12px 18px; }
+        .top-bar h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+        .top-bar .route-info { display: flex; justify-content: space-between; font-size: 14px; color: #ccc;}
+        .top-bar .eta { color: var(--success-color); font-weight: 600;}
+        .progress-bar { width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; margin-top: 10px;}
+        .progress-bar div { width: 10%; height: 100%; background: var(--primary-accent); transition: width 1s ease-out; }
+
+        .ar-world {
+            position: absolute; bottom: 0; left: 50%; width: 1000px; height: 800px;
+            transform-style: preserve-3d; transform: translateX(-50%) perspective(400px) rotateX(65deg);
+            pointer-events: none;
+        }
+        .pillar-occluder {
+            position: absolute; bottom: 400px; left: 150px;
+            width: 150px; height: 800px; background: #656461; /* Color picked from bg pillar */
+            transform: rotateY(-10deg); z-index: 2;
+        }
+        .ar-path {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+            mask-image: linear-gradient(to top, #000 0%, #000 70%, transparent 100%);
+        }
+        .ar-path svg path {
+            stroke: var(--primary-accent); stroke-width: 25; fill: none;
+            filter: drop-shadow(0 0 20px var(--glow-color));
+            stroke-dasharray: 2000; stroke-dashoffset: 2000;
+            animation: drawPath 4s ease-in-out forwards 0.5s;
+        }
+        @keyframes drawPath { to { stroke-dashoffset: 0; } }
+
+        .instruction-panel {
+            bottom: 160px; left: 15px; right: 15px; padding: 15px 20px;
+            display: flex; align-items: center; gap: 15px;
+            animation: slideUp 0.6s ease-out 0.2s backwards;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .instruction-panel .icon svg { width: 40px; height: 40px; }
+        .instruction-panel .text h2 { margin: 0; font-size: 20px; }
+        .instruction-panel .text p { margin: 0; font-size: 15px; color: #ccc; }
+
+        .mini-map-container { bottom: 15px; left: 15px; right: 15px; padding: 10px; }
+        .mini-map {
+            width: 120px; height: 120px; border-radius: 15px;
+            background: #222533 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><path d="M10 20 L 40 10 L 70 25 L 110 15 L 110 80 L 70 100 L 40 90 L 10 105 Z" fill="rgba(255,255,255,0.05)" stroke="%23556" stroke-width="2"/><path d="M40 10 L 40 90 M70 25 L 70 100" fill="none" stroke="%23445" stroke-width="1"/></svg>') center/cover;
+            position: relative; overflow: hidden;
+        }
+        .mini-map .user-dot {
+            position: absolute; top: 75px; left: 25px; width: 12px; height: 12px;
+            background: #fff; border-radius: 50%; border: 2px solid var(--primary-accent);
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+        .user-dot::before {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 15px; height: 15px;
+            border-radius: 50%; background: var(--primary-accent); transform: translate(-50%, -50%);
+            animation: radar 2s infinite ease-out;
+        }
+        @keyframes radar {
+            from { box-shadow: 0 0 0 0 rgba(0,229,255,0.5); }
+            to { box-shadow: 0 0 0 30px rgba(0,229,255,0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="phone-container">
+        <div class="screen-content">
+            <div class="system-bar">
+                <span id="time">5:45 PM</span>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm14 2.5a.5.5 0 0 0-.5-.5h-11a.5.5 0 0 0 0 1h11a.5.5 0 0 0 .5-.5z"/></svg>
+            </div>
+            
+            <div id="initializer" class="app-state active">
+                <div class="scanner"></div>
+                <p>Scanning environment...</p>
+            </div>
+            
+            <div id="search-view" class="app-state">
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Search for gate, store, or lounge">
+                    <div id="search-results" style="display: none;">
+                        <div class="result-item" onclick="startNavigation()">
+                            <h3>080 Lounge</h3>
+                            <p>Gate B4 Area, International Departures, L2</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="navigation-view">
+                <div class="ar-world">
+                    <div class="pillar-occluder"></div>
+                    <div class="ar-path">
+                         <svg viewBox="0 0 1000 800">
+                             <path d="M 500 800 Q 500 500 300 450 T 100 200" />
+                         </svg>
+                    </div>
+                </div>
+
+                <div class="top-bar ui-element">
+                    <h1>Directions to <strong>080 Lounge</strong></h1>
+                    <div class="route-info">
+                        <span id="distance">450m</span>
+                        <span id="eta" class="eta">Approx. 6 min</span>
+                    </div>
+                    <div class="progress-bar"><div id="progress"></div></div>
+                </div>
+
+                <div id="instruction" class="instruction-panel ui-element">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M12 5L5 12M12 5L19 12"/></svg>
+                    </div>
+                    <div class="text">
+                        <h2>Proceed Straight</h2>
+                        <p>Follow the AR path</p>
+                    </div>
+                </div>
+                
+                <div class="mini-map-container ui-element">
+                    <div class="mini-map"><div class="user-dot"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const timeEl = document.getElementById('time');
+    function updateTime() {
+        timeEl.textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    const initializer = document.getElementById('initializer');
+    const searchView = document.getElementById('search-view');
+    const navView = document.getElementById('navigation-view');
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+
+    setTimeout(() => {
+        initializer.classList.remove('active');
+        searchView.classList.add('active');
+        searchInput.focus();
+    }, 2500);
+
+    searchInput.addEventListener('input', () => {
+        searchResults.style.display = searchInput.value.length > 2 ? 'block' : 'none';
+    });
+
+    function startNavigation() {
+        searchView.classList.remove('active');
+        navView.style.display = 'block';
+
+        setTimeout(() => { document.getElementById('progress').style.width = '75%'; }, 500);
+        
+        setTimeout(() => {
+            document.getElementById('instruction').innerHTML = `
+                <div class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9L4 15L10 21"/> <path d="M4 15H20"/></svg>
+                </div>
+                <div class="text">
+                    <h2>Prepare to Turn Left</h2>
+                    <p>In 30 meters</p>
+                </div>`;
+        }, 6000);
+    }
+</script>
+</body>
+</html>
